@@ -13,6 +13,7 @@ async fn jds_ask_for_missing_transactions() {
     start_sv2_translator(jdc_addr);
     assert!(tp_2.fund_wallet().is_ok());
     assert!(tp_2.create_mempool_transaction().is_ok());
+    let _ = tp_2.create_mempool_transaction();
     sniffer
         .wait_for_message_type(
             MessageDirection::ToUpstream,

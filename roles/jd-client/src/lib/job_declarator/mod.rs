@@ -14,6 +14,7 @@
 pub mod message_handler;
 use async_channel::{Receiver, Sender};
 use binary_sv2::{Seq0255, Seq064K, B016M, B064K, U256};
+use cairo_prove::Arg;
 use codec_sv2::{HandshakeRole, Initiator, StandardEitherFrame, StandardSv2Frame};
 use network_helpers_sv2::noise_connection::Connection;
 use roles_logic_sv2::{
@@ -24,8 +25,14 @@ use roles_logic_sv2::{
     template_distribution_sv2::SetNewPrevHash,
     utils::Mutex,
 };
+use starknet::core::codec::Encode;
+use starknet_types_core::felt::Felt;
 use std::{collections::HashMap, convert::TryInto};
-use stratum_common::bitcoin::{consensus, hashes::Hash, Transaction};
+use stratum_common::bitcoin::{
+    consensus::{self, Decodable},
+    hashes::Hash,
+    Amount, Transaction, TxOut,
+};
 use tokio::task::AbortHandle;
 use tracing::{debug, error, info};
 
@@ -300,9 +307,28 @@ impl JobDeclarator {
         // Deserialize the transaction list to calculate short hashes and the list hash.
         let mut tx_list: Vec<Transaction> = Vec::new();
         let mut txids_as_u256: Vec<U256<'static>> = Vec::new();
-        for tx in tx_list_.to_vec() {
+        let tx_list_vec = tx_list_.to_vec();
+
+        let mut pool_out = &coinbase_pool_output[0..];
+        let mut pool_coinbase_outputs = vec![
+            TxOut::consensus_decode(&mut pool_out).expect("Upstream sent an invalid coinbase")
+        ];
+        pool_coinbase_outputs[0].value = template
+            .coinbase_tx_value_remaining
+            .checked_mul(1)
+            .map(Amount::from_sat)
+            .unwrap();
+
+        let mut fees = vec![Felt::from(tx_list_vec.len())];
+
+        for tx in tx_list_vec {
             //TODO remove unwrap
-            let tx: Transaction = consensus::deserialize(&tx).unwrap();
+            let (tx, fee): (Transaction, Amount) = consensus::deserialize(&tx).unwrap();
+
+            fee.to_sat()
+                .encode(&mut fees)
+                .expect("Failed to encode fee");
+
             let txid = tx.compute_txid();
             let byte_array: [u8; 32] = *txid.as_byte_array();
             let owned_vec: Vec<u8> = byte_array.into();
@@ -310,8 +336,24 @@ impl JobDeclarator {
             txids_as_u256.push(txid_as_u256);
             tx_list.push(tx);
         }
-        let tx_ids = Seq064K::new(txids_as_u256).expect("Failed to create Seq064K");
+        let mut encoded_coinbase = vec![];
+        pool_coinbase_outputs[0]
+            .value
+            .to_sat()
+            .encode(&mut encoded_coinbase)
+            .unwrap();
+        encoded_coinbase.append(&mut fees);
+        encoded_coinbase.push(Felt::from(5000000000u128));
 
+        let args = encoded_coinbase.into_iter().map(Arg::Value).collect();
+
+        let stark_proof = cairo_prove::execute_and_prove(
+            "/Users/lucas/str/stratum/utils/stratum_cairo.executable.json",
+            args,
+            Default::default(),
+        );
+
+        let tx_ids = Seq064K::new(txids_as_u256).expect("Failed to create Seq064K");
         // Construct the DeclareMiningJob message.
         let declare_job = DeclareMiningJob {
             request_id: id,
@@ -325,6 +367,10 @@ impl JobDeclarator {
                 .unwrap(),
             tx_ids_list: tx_ids,
             excess_data, // request transaction data
+            stark_proof: serde_json::to_vec(&stark_proof)
+                .unwrap()
+                .try_into()
+                .unwrap(),
         };
 
         // Determine the associated SetNewPrevHash message. This is only relevant

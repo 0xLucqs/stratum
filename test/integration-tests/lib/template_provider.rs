@@ -68,7 +68,7 @@ impl TemplateProvider {
                 Err(_) => {
                     let download_endpoint =
                         env::var("BITCOIND_DOWNLOAD_ENDPOINT").unwrap_or_else(|_| {
-                            "https://github.com/Sjors/bitcoin/releases/download".to_owned()
+                            "https://github.com/0xLucqs/bitcoin/releases/download".to_owned()
                         });
                     let url = format!(
                         "{}/sv2-tp-{}/{}",

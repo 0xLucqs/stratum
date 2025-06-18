@@ -200,7 +200,7 @@ fn new_extended_job(
         .map_err(|_| Error::TxVersionTooBig)?;
 
     let script_sig_prefix = new_template.coinbase_prefix.to_vec();
-    let script_sig_prefix_len = script_sig_prefix.len();
+    let script_sig_prefix_len = script_sig_prefix.len() + 4;
 
     let coinbase = coinbase(
         script_sig_prefix,

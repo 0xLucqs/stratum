@@ -1,4 +1,5 @@
 use binary_sv2::{Decodable, Serialize, U256};
+use cairo_air::verifier::verify_cairo;
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseJobDeclarationMessagesFromDownstream, SendTo_},
     job_declaration_sv2::{
@@ -9,11 +10,13 @@ use roles_logic_sv2::{
     parsers::JobDeclaration,
     utils::Mutex,
 };
-use std::{convert::TryInto, io::Cursor, sync::Arc};
+use std::{convert::TryInto, sync::Arc};
 use stratum_common::bitcoin::{
     hashes::{sha256d, Hash},
     Transaction, Txid,
 };
+use stwo_cairo_prover::stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
+
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use crate::mempool::JDsMempool;
 
@@ -85,7 +88,14 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
             clear_declared_mining_job(old_mining_job, &message, self.mempool.clone())?;
         }
         let mut known_transactions: Vec<Txid> = vec![];
-        if self.verify_job(&message) {
+
+        let proof_verif = verify_cairo::<Blake2sMerkleChannel>(
+            serde_json::from_slice(&message.stark_proof.to_vec()).unwrap(),
+            Default::default(),
+            cairo_air::PreProcessedTraceVariant::CanonicalWithoutPedersen,
+        );
+
+        if proof_verif.is_ok() && self.verify_job(&message) {
             let txids = message.tx_ids_list.inner_as_ref();
             let mempool = self.mempool.safe_lock(|x| x.mempool.clone())?;
             let mut transactions_with_state = vec![TransactionState::Missing; txids.len()];
@@ -169,7 +179,7 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
                 // issue #860)
                 if id == message.request_id {
                     for (i, tx) in message.transaction_list.inner_as_ref().iter().enumerate() {
-                        let mut cursor = Cursor::new(tx);
+                        let mut cursor = stratum_common::bitcoin::io::Cursor::new(tx);
                         let transaction =
                             Transaction::consensus_decode_from_finite_reader(&mut cursor)
                                 .map_err(|e| Error::TxDecodingError(e.to_string()))?;

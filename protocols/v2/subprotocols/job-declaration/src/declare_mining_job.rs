@@ -1,5 +1,7 @@
 use alloc::vec::Vec;
-use binary_sv2::{binary_codec_sv2, Deserialize, Seq064K, Serialize, Str0255, B0255, B064K, U256};
+use binary_sv2::{
+    binary_codec_sv2, Deserialize, Seq064K, Serialize, Str0255, B016M, B0255, B064K, U256,
+};
 use core::convert::TryInto;
 
 /// Message used by JDC to proposes a selected set of transactions to JDS they wish to
@@ -32,6 +34,7 @@ pub struct DeclareMiningJob<'decoder> {
     pub tx_ids_list: Seq064K<'decoder, U256<'decoder>>,
     /// Extra data which the JDS may require to validate the work.
     pub excess_data: B064K<'decoder>,
+    pub stark_proof: B016M<'decoder>,
 }
 
 /// Messaged used by JDS to accept [`DeclareMiningJob`] message.

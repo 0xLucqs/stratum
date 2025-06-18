@@ -16,16 +16,28 @@ name = "jd_client"
 path = "src/lib/mod.rs"
 
 [dependencies]
-stratum-common = { path = "../../common", features=["bitcoin"]}
+cairo-air = { git = "https://github.com/0xLucqs/stwo-cairo", rev = "b160127" }
+cairo-prove = { git = "https://github.com/0xLucqs/stwo-cairo", rev = "b2dac76" }
+stwo_cairo_prover = { git = "https://github.com/0xLucqs/stwo-cairo", rev = "b160127" }
+
+stratum-common = { path = "../../common", features = ["bitcoin"] }
 async-channel = "1.5.1"
 async-recursion = "0.3.2"
 binary_sv2 = { path = "../../protocols/v2/binary-sv2" }
 buffer_sv2 = { path = "../../utils/buffer" }
-codec_sv2 = { path = "../../protocols/v2/codec-sv2", features = ["noise_sv2", "with_buffer_pool"] }
+codec_sv2 = { path = "../../protocols/v2/codec-sv2", features = [
+    "noise_sv2",
+    "with_buffer_pool",
+] }
 framing_sv2 = { path = "../../protocols/v2/framing-sv2" }
-network_helpers_sv2 = { path = "../roles-utils/network-helpers", features=["with_buffer_pool"] }
+network_helpers_sv2 = { path = "../roles-utils/network-helpers", features = [
+    "with_buffer_pool",
+] }
 roles_logic_sv2 = { path = "../../protocols/v2/roles-logic-sv2" }
-serde = { version = "1.0.89", default-features = false, features = ["derive", "alloc"] }
+serde = { version = "1.0.89", default-features = false, features = [
+    "derive",
+    "alloc",
+] }
 futures = "0.3.25"
 tokio = { version = "1.44.1", features = ["full"] }
 ext-config = { version = "0.14.0", features = ["toml"], package = "config" }
@@ -37,3 +49,6 @@ key-utils = { path = "../../utils/key-utils" }
 primitive-types = "0.13.1"
 config-helpers = { path = "../roles-utils/config-helpers" }
 clap = { version = "4.5.39", features = ["derive"] }
+starknet-types-core = "0.1.8"
+starknet = "0.15.1"
+serde_json = "1.0.130"
