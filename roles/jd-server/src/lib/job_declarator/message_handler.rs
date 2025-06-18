@@ -1,5 +1,5 @@
 use binary_sv2::{Decodable, Serialize, U256};
-use cairo_air::verifier::verify_cairo;
+use cairo_air::{verifier::verify_cairo, CairoProof};
 use roles_logic_sv2::{
     handlers::{job_declaration::ParseJobDeclarationMessagesFromDownstream, SendTo_},
     job_declaration_sv2::{
@@ -10,12 +10,19 @@ use roles_logic_sv2::{
     parsers::JobDeclaration,
     utils::Mutex,
 };
+
 use std::{convert::TryInto, sync::Arc};
-use stratum_common::bitcoin::{
-    hashes::{sha256d, Hash},
-    Transaction, Txid,
+use stratum_common::{
+    bitcoin::{
+        hashes::{sha256d, Hash},
+        Transaction, Txid,
+    },
+    STRATUM_CAIRO_PROGRAM_HASH,
 };
-use stwo_cairo_prover::stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
+use stwo_cairo_prover::stwo_prover::core::vcs::{
+    blake2_hash::Blake2sHasher,
+    blake2_merkle::{Blake2sMerkleChannel, Blake2sMerkleHasher},
+};
 
 pub type SendTo = SendTo_<JobDeclaration<'static>, ()>;
 use crate::mempool::JDsMempool;
@@ -23,7 +30,7 @@ use crate::mempool::JDsMempool;
 use super::{signed_token, TransactionState};
 use roles_logic_sv2::{errors::Error, parsers::AnyMessage as AllMessages};
 use stratum_common::bitcoin::consensus::Decodable as BitcoinDecodable;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 use super::JobDeclaratorDownstream;
 
@@ -88,14 +95,32 @@ impl ParseJobDeclarationMessagesFromDownstream for JobDeclaratorDownstream {
             clear_declared_mining_job(old_mining_job, &message, self.mempool.clone())?;
         }
         let mut known_transactions: Vec<Txid> = vec![];
+        let proof: CairoProof<Blake2sMerkleHasher> =
+            serde_json::from_slice(&message.stark_proof.to_vec()).unwrap();
+        let proof_program_hash = Blake2sHasher::hash(unsafe {
+            let byte_len = proof.claim.public_data.public_memory.program.len()
+                * std::mem::size_of::<(u32, [u32; 8])>();
 
-        let proof_verif = verify_cairo::<Blake2sMerkleChannel>(
-            serde_json::from_slice(&message.stark_proof.to_vec()).unwrap(),
-            Default::default(),
-            cairo_air::PreProcessedTraceVariant::CanonicalWithoutPedersen,
-        );
+            std::slice::from_raw_parts(
+                proof.claim.public_data.public_memory.program.as_ptr() as *const u8,
+                byte_len,
+            )
+        });
 
-        if proof_verif.is_ok() && self.verify_job(&message) {
+        let proof_verif = if proof_program_hash.0 == STRATUM_CAIRO_PROGRAM_HASH {
+            info!("verifying stark proof");
+            verify_cairo::<Blake2sMerkleChannel>(
+                proof,
+                Default::default(),
+                cairo_air::PreProcessedTraceVariant::CanonicalWithoutPedersen,
+            )
+            .is_ok()
+        } else {
+            error!("Invalid program hash");
+            false
+        };
+
+        if proof_verif && self.verify_job(&message) {
             let txids = message.tx_ids_list.inner_as_ref();
             let mempool = self.mempool.safe_lock(|x| x.mempool.clone())?;
             let mut transactions_with_state = vec![TransactionState::Missing; txids.len()];

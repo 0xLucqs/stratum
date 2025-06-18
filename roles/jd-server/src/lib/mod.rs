@@ -97,7 +97,7 @@ impl JobDeclaratorServer {
         let mempool_cloned_1 = mempool.clone();
         // Pre-flight check: can we reach the RPC node
         if let Err(e) = mempool::JDsMempool::health(mempool_cloned_1.clone()).await {
-            error!("JDS Connection with bitcoin core failed {:?}", e);
+            error!("JDS Connection with bitcoin core failed here {:?}", e);
             return Err(JdsError::MempoolError(e));
         }
         let (status_tx, status_rx) = unbounded();

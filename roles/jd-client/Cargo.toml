@@ -17,7 +17,7 @@ path = "src/lib/mod.rs"
 
 [dependencies]
 cairo-air = { git = "https://github.com/0xLucqs/stwo-cairo", rev = "b160127" }
-cairo-prove = { git = "https://github.com/0xLucqs/stwo-cairo", rev = "b2dac76" }
+cairo-prove = { git = "https://github.com/0xLucqs/stwo-cairo", rev = "37fcba33" }
 stwo_cairo_prover = { git = "https://github.com/0xLucqs/stwo-cairo", rev = "b160127" }
 
 stratum-common = { path = "../../common", features = ["bitcoin"] }

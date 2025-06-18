@@ -28,10 +28,13 @@ use roles_logic_sv2::{
 use starknet::core::codec::Encode;
 use starknet_types_core::felt::Felt;
 use std::{collections::HashMap, convert::TryInto};
-use stratum_common::bitcoin::{
-    consensus::{self, Decodable},
-    hashes::Hash,
-    Amount, Transaction, TxOut,
+use stratum_common::{
+    bitcoin::{
+        consensus::{self, Decodable},
+        hashes::Hash,
+        Amount, Transaction, TxOut,
+    },
+    STRATUM_CAIRO_EXECUTABLE,
 };
 use tokio::task::AbortHandle;
 use tracing::{debug, error, info};
@@ -347,8 +350,8 @@ impl JobDeclarator {
 
         let args = encoded_coinbase.into_iter().map(Arg::Value).collect();
 
-        let stark_proof = cairo_prove::execute_and_prove(
-            "./stratum_cairo.executable.json",
+        let stark_proof = cairo_prove::execute_and_prove_bytes(
+            STRATUM_CAIRO_EXECUTABLE,
             args,
             Default::default(),
         );

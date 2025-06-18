@@ -51,3 +51,6 @@ config-helpers = { path = "../roles-utils/config-helpers" }
 clap = { version = "4.5.39", features = ["derive"] }
 stwo_cairo_prover = { git = "https://github.com/0xLucqs/stwo-cairo", rev = "b160127" }
 cairo-air = { git = "https://github.com/0xLucqs/stwo-cairo", rev = "b160127" }
+stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "dcbaebf", features = [
+    "parallel",
+], default-features = false }
