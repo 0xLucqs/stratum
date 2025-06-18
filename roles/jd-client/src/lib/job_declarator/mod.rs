@@ -348,7 +348,7 @@ impl JobDeclarator {
         let args = encoded_coinbase.into_iter().map(Arg::Value).collect();
 
         let stark_proof = cairo_prove::execute_and_prove(
-            "/Users/lucas/str/stratum/utils/stratum_cairo.executable.json",
+            "./stratum_cairo.executable.json",
             args,
             Default::default(),
         );
